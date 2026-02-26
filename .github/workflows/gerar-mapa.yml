@@ -1,0 +1,46 @@
+name: Gerar mapa diário
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # 06:00 UTC (~03:00 SP)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+
+      - name: Gerar HTML
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: npm run build
+
+      - name: Debug - listar arquivos
+        run: |
+          echo "=== raiz ==="
+          ls -la
+          echo "=== docs ==="
+          ls -la docs || true
+          echo "=== index ==="
+          test -f docs/index.html && echo "OK: docs/index.html existe" || (echo "ERRO: docs/index.html NÃO existe" && exit 1)
+
+      - name: Commit e push
+        run: |
+          mkdir -p docs
+          touch docs/.nojekyll
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add docs/index.html docs/.nojekyll
+          git commit -m "Atualiza mapa (auto)" || echo "Sem mudanças"
+          git push
